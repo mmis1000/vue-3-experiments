@@ -17,6 +17,8 @@ export type TeleportVNode = VNode<RendererNode, RendererElement, TeleportProps>
 
 export interface TeleportProps {
   to: string | RendererElement | null | undefined
+  before: string | RendererElement | null | undefined
+  after: string | RendererElement | null | undefined
   disabled?: boolean
 }
 
@@ -30,9 +32,11 @@ const isTargetSVG = (target: RendererElement): boolean =>
 
 const resolveTarget = <T = RendererElement>(
   props: TeleportProps | null,
-  select: RendererOptions['querySelector']
+  select: RendererOptions['querySelector'],
+  propName?: keyof TeleportProps
 ): T | null => {
-  const targetSelector = props && props.to
+  const targetSelector = propName == null ? (props && props.to) : (props && props[propName])
+
   if (isString(targetSelector)) {
     if (!select) {
       __DEV__ &&
@@ -104,9 +108,11 @@ export const TeleportImpl = {
       insert(placeholder, container, anchor)
       insert(mainAnchor, container, anchor)
       const target = (n2.target = resolveTarget(n2.props, querySelector))
+      const insertBefore = n2.props?.before != null ? resolveTarget(n2.props, querySelector, 'before') : null
       const targetAnchor = (n2.targetAnchor = createText(''))
+
       if (target) {
-        insert(targetAnchor, target)
+        insert(targetAnchor, target, insertBefore)
         // #2652 we could be teleporting from a non-SVG tree into an SVG tree
         isSVG = isSVG || isTargetSVG(target)
       } else if (__DEV__ && !disabled) {
@@ -189,16 +195,20 @@ export const TeleportImpl = {
         }
       } else {
         // target changed
-        if ((n2.props && n2.props.to) !== (n1.props && n1.props.to)) {
+        if (
+          (n2.props && n2.props.to) !== (n1.props && n1.props.to) ||
+          (n2.props && n2.props.before) !== (n1.props && n1.props.before)
+        ) {
           const nextTarget = (n2.target = resolveTarget(
             n2.props,
             querySelector
           ))
+          const insertBefore = n2.props?.before != null ? resolveTarget(n2.props, querySelector, 'before') : null
           if (nextTarget) {
             moveTeleport(
               n2,
               nextTarget,
-              null,
+              insertBefore,
               internals,
               TeleportMoveTypes.TARGET_CHANGE
             )
@@ -334,11 +344,13 @@ function hydrateTeleport(
     vnode.props,
     querySelector
   ))
+  const insertAfter = vnode.props?.after != null ? resolveTarget<Element>(vnode.props, querySelector, 'after') : null
+
   if (target) {
     // if multiple teleports rendered to the same target element, we need to
     // pick up from where the last teleport finished instead of the first node
     const targetNode =
-      (target as TeleportTargetElement)._lpa || target.firstChild
+      (target as TeleportTargetElement)._lpa || (insertAfter != null ? nextSibling(insertAfter) : null)|| target.firstChild
     if (vnode.shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
       if (isTeleportDisabled(vnode.props)) {
         vnode.anchor = hydrateChildren(
