@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "postinstall": "./scripts/postinstall.sh",
+    "dev": "cd ./ssr-vue/; pnpm run dev",
+    "build": "cd ./ssr-vue/; pnpm run build",
+    "serve": "cd ./ssr-vue/; pnpm run serve"
+  },
+  "engines": {
+    "node": ">=16.5.0"
+  }
+}
